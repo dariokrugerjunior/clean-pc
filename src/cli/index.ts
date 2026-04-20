@@ -216,8 +216,7 @@ async function fluxoLimpeza(
       message: `Deletar ${fmt(scanReport.totalEligibleBytes)} de arquivos temporários (${scanReport.totalEligibleFiles.toLocaleString('pt-BR')} arquivos)?`,
       default: false,
     });
-    if (!confirmar) {
-      console.log(chalk.dim('Operação cancelada.'));
+    if (!confirmar) {    console.log(chalk.dim('Opera\u00e7\u00e3o cancelada.'));
       return;
     }
   }
@@ -273,17 +272,74 @@ const OPCOES_MENU = [
   },
 ] as const;
 
-type OpcaoMenu = (typeof OPCOES_MENU[number] extends { value: infer V } ? V : never);
+const BANNER_LINES = [
+  '  ____ _     _____    _    _   _      ____   ____ ',
+  ' / ___| |   | ____|  / \\\\  | \\\\ | |    |  _ \\\\ / ___|',
+  '| |   | |   |  _|   / _ \\\\ |  \\\\| |____| |_) | |',
+  '| |___| |___| |___ / ___ \\\\| |\\\\  |____|  __/| |___',
+  ' \\\\____|_____|_____/_/   \\\\_\\\\_| \\\\_|    |_|    \\\\____|',
+] as const;
+const MENU_SEPARATOR = '------------------------------';
+const MENU_CHOICES = [
+  {
+    name: 'Analisar espa\u00e7o que pode ser liberado',
+    value: 'scan-all',
+  },
+  new Separator(`${MENU_SEPARATOR} Limpeza por categoria ${MENU_SEPARATOR}`),
+  {
+    name: 'Limpar tempor\u00e1rios do usu\u00e1rio',
+    value: 'clean-userTemp',
+  },
+  {
+    name: 'Limpar tempor\u00e1rios do Windows',
+    value: 'clean-windowsTemp',
+  },
+  {
+    name: 'Esvaziar lixeira',
+    value: 'clean-recycleBin',
+  },
+  {
+    name: 'Limpar cache do npm',
+    value: 'clean-npm',
+  },
+  {
+    name: 'Limpar logs',
+    value: 'clean-logs',
+  },
+  new Separator(MENU_SEPARATOR.repeat(2)),
+  {
+    name: 'Limpeza segura completa',
+    value: 'clean-all',
+  },
+  new Separator(MENU_SEPARATOR.repeat(2)),
+  {
+    name: 'Sair',
+    value: 'sair',
+  },
+] as const;
 
-async function modoInterativo(): Promise<void> {
+function renderBanner(): void {
   console.log('');
-  console.log(chalk.bold.cyan('  clean-pc') + chalk.dim(' — Limpador de disco para Windows'));
+  console.log(chalk.cyanBright(BANNER_LINES.join('\n')));
+  console.log(chalk.white('  Limpador de disco para Windows'));
+  console.log(chalk.dim(`  v${packageJson.version}`));
   console.log('');
+}
+
+type OpcaoMenu = (typeof MENU_CHOICES[number] extends { value: infer V } ? V : never);
+
+async function modoInterativo(showBanner = true): Promise<void> {
+  if (showBanner) {
+    renderBanner();
+  } else {
+    console.log('');
+  }
 
   while (true) {
     const opcao = await select<OpcaoMenu>({
       message: 'O que deseja fazer?',
-      choices: OPCOES_MENU as any,
+      choices: MENU_CHOICES as any,
+      pageSize: 11,
     });
 
     console.log('');
@@ -318,7 +374,7 @@ async function modoInterativo(): Promise<void> {
         break;
 
       case 'sair':
-        console.log(chalk.dim('Até logo!'));
+        console.log(chalk.dim('At\u00e9 logo!'));
         process.exit(0);
     }
 
@@ -354,7 +410,8 @@ program
   .name('clean-pc')
   .description('Limpador de disco para Windows — seguro, transparente e sempre pede confirmação')
   .version(packageJson.version)
-  .action(modoInterativo);
+  .option('--no-banner', 'Oculta o banner no modo interativo')
+  .action((opts: { banner: boolean }) => modoInterativo(opts.banner));
 
 program
   .command('scan')
@@ -382,7 +439,7 @@ program
 program.parseAsync(process.argv).catch((err: unknown) => {
   if (isPromptInterrupt(err)) {
     console.log('');
-    console.log(chalk.dim('OperaÃ§Ã£o cancelada.'));
+    console.log(chalk.dim('Opera\u00e7\u00e3o cancelada.'));
     process.exit(130);
   }
 
