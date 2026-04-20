@@ -25,12 +25,12 @@ Limpador de disco para Windows via terminal. Analisa arquivos temporários, cach
 
 ### Download direto (recomendado)
 
-Baixe o `clean-pc.exe` da [página de Releases](https://github.com/dariokrugerjunior/clear-pc/releases/latest) e coloque em qualquer pasta do seu PATH.
+Baixe o `clean-pc.exe` da [página de Releases](https://github.com/dariokrugerjunior/clean-pc/releases/latest) e coloque em qualquer pasta do seu PATH.
 
 **Instalação rápida via PowerShell:**
 
 ```powershell
-$url = "https://github.com/dariokrugerjunior/clear-pc/releases/latest/download/clean-pc.exe"
+$url = "https://github.com/dariokrugerjunior/clean-pc/releases/latest/download/clean-pc.exe"
 New-Item -ItemType Directory -Force "$env:USERPROFILE\bin" | Out-Null
 Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\bin\clean-pc.exe"
 ```
@@ -43,8 +43,8 @@ Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\bin\clean-pc.exe"
 Requer Node.js 20+ e Windows SDK (para `signtool`).
 
 ```powershell
-git clone https://github.com/dariokrugerjunior/clear-pc
-cd clear-pc
+git clone https://github.com/dariokrugerjunior/clean-pc
+cd clean-pc
 npm install
 npm run build:sea   # gera clean-pc.exe (~67 MB)
 ```
