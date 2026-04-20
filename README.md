@@ -4,13 +4,11 @@ Limpador de disco para Windows via terminal. Analisa arquivos temporarios, cache
 
 <br>
 
-![Menu interativo](images/screenshot-menu.png)
-
 ---
 
 ## Funcionalidades
 
-- Menu interativo em pt-BR
+- Menu interativo em pt-BR com banner ASCII compacto
 - Analise antes da limpeza
 - Filtro de idade para ignorar arquivos recentes por padrao
 - Top 10 maiores arquivos
@@ -84,7 +82,24 @@ Isso e necessario porque o blob SEA precisa ser produzido pela mesma versao de N
 clean-pc
 ```
 
-![Analise completa](images/screenshot-scan.png)
+O modo interativo abre com um banner compacto, mostra a versao atual do executavel e organiza as acoes em um menu limpo e legivel para CMD e PowerShell.
+
+Opcoes disponiveis:
+
+- Analisar espaco que pode ser liberado
+- Limpar temporarios do usuario
+- Limpar temporarios do Windows
+- Esvaziar lixeira
+- Limpar cache do npm
+- Limpar logs
+- Limpeza segura completa
+- Sair
+
+Se quiser abrir o menu sem o banner:
+
+```powershell
+clean-pc --no-banner
+```
 
 ### Comandos diretos
 
@@ -98,8 +113,6 @@ clean-pc clean --dry-run
 # limpeza real com confirmacao
 clean-pc clean --targets userTemp,npm
 ```
-
-![Simulacao dry-run](images/screenshot-dryrun.png)
 
 ---
 
@@ -122,6 +135,7 @@ clean-pc clean --targets userTemp,npm
 | `--targets <lista>` | Targets separados por virgula | `userTemp` |
 | `--dry-run` | Simula sem deletar | `false` |
 | `--min-age-hours <n>` | Idade minima do arquivo para ser elegivel | `24` |
+| `--no-banner` | Oculta o banner no modo interativo | `false` |
 
 Exemplos:
 
