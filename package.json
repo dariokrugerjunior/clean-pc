@@ -9,7 +9,10 @@
   "scripts": {
     "build": "tsup",
     "build:sea-bundle": "tsup --config tsup.sea.config.ts",
-    "build:sea": "powershell -ExecutionPolicy Bypass -File build-sea.ps1",
+    "build:sea": "powershell -ExecutionPolicy Bypass -File build-sea.ps1 -Arch x64",
+    "build:sea:x64": "powershell -ExecutionPolicy Bypass -File build-sea.ps1 -Arch x64",
+    "build:sea:x86": "powershell -ExecutionPolicy Bypass -File build-sea.ps1 -Arch x86",
+    "build:sea:all": "powershell -ExecutionPolicy Bypass -File build-sea.ps1 -Arch x64,x86",
     "typecheck": "tsc --noEmit",
     "scan": "tsx src/cli/index.ts scan --targets userTemp,windowsTemp,recycleBin,npm,logs",
     "dry": "tsx src/cli/index.ts clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs",

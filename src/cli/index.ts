@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { confirm, select, Separator } from '@inquirer/prompts';
 import bytes from 'bytes';
+import packageJson from '../../package.json' with { type: 'json' };
 import { runScan, runClean } from '../orchestrator.js';
 import type { ScanReport, CleanReport } from '../orchestrator.js';
 import { DEFAULT_TARGET_KEYS, ALL_TARGETS } from '../targets.js';
@@ -346,7 +347,7 @@ const program = new Command();
 program
   .name('clean-pc')
   .description('Limpador de disco para Windows — seguro, transparente e sempre pede confirmação')
-  .version('1.0.0')
+  .version(packageJson.version)
   .action(modoInterativo);
 
 program
