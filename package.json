@@ -1,13 +1,15 @@
 {
-  "name": "pc-cleaner",
+  "name": "clean-pc",
   "version": "1.0.0",
-  "description": "Windows disk cleaner CLI tool",
+  "description": "Limpador de disco Windows via terminal",
   "type": "module",
   "bin": {
-    "pc-cleaner": "./dist/cli/index.js"
+    "clean-pc": "./dist/cli/index.js"
   },
   "scripts": {
     "build": "tsup",
+    "build:sea-bundle": "tsup --config tsup.sea.config.ts",
+    "build:sea": "powershell -ExecutionPolicy Bypass -File build-sea.ps1",
     "typecheck": "tsc --noEmit",
 
     "scan": "tsx src/cli/index.ts scan --targets userTemp,windowsTemp,recycleBin,npm,logs",
@@ -33,6 +35,7 @@
     "@types/bytes": "^3.1.5",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^20.0.0",
+    "postject": "^1.0.0-alpha.6",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.8.3"

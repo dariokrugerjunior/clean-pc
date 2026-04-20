@@ -1,5 +1,7 @@
 node_modules/
 dist/
+*.exe
+*.blob
 
 .idea/
 .claude/
