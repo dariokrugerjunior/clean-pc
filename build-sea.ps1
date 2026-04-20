@@ -65,6 +65,22 @@ function Get-ExpectedHash([string]$ArchName) {
   return ($entry.Line -split '\s+')[0].ToLowerInvariant()
 }
 
+function Get-Sha256([string]$Path) {
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      $hashBytes = $sha256.ComputeHash($stream)
+    } finally {
+      $sha256.Dispose()
+    }
+  } finally {
+    $stream.Dispose()
+  }
+
+  return ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+}
+
 function Ensure-VerifiedNodeBinary([string]$ArchName) {
   $nodeDir = Join-Path $nodeCacheDir "win-$ArchName"
   $nodeExe = Join-Path $nodeDir 'node.exe'
@@ -72,7 +88,7 @@ function Ensure-VerifiedNodeBinary([string]$ArchName) {
   Ensure-File "$distBaseUrl/SHASUMS256.txt" $checksumsPath
   Ensure-File "$distBaseUrl/win-$ArchName/node.exe" $nodeExe
 
-  $actualHash = (Get-FileHash -Path $nodeExe -Algorithm SHA256).Hash.ToLowerInvariant()
+  $actualHash = Get-Sha256 $nodeExe
   $expectedHash = Get-ExpectedHash $ArchName
   if ($actualHash -ne $expectedHash) {
     throw "Checksum invalido para win-$ArchName/node.exe. Esperado: $expectedHash. Obtido: $actualHash."
@@ -125,11 +141,13 @@ npm run build:sea-bundle
 Assert-LastExitCode 'npm run build:sea-bundle'
 
 $targets = @(
-  $Arch |
-    ForEach-Object { $_ -split ',' } |
-    ForEach-Object { $_.Trim().ToLowerInvariant() } |
-    Where-Object { $_ }
-) | Select-Object -Unique
+  @(
+    $Arch |
+      ForEach-Object { $_ -split ',' } |
+      ForEach-Object { $_.Trim().ToLowerInvariant() } |
+      Where-Object { $_ }
+  ) | Select-Object -Unique
+)
 
 if (-not $targets) {
   throw "Nenhuma arquitetura informada. Use x64, x86 ou ambas."
