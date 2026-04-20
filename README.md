@@ -4,6 +4,8 @@ Limpador de disco para Windows via terminal. Analisa arquivos temporarios, cache
 
 <br>
 
+![Demonstracao do clean-pc](images/gg.gif)
+
 ---
 
 ## Funcionalidades
