@@ -1,6 +1,6 @@
 {
   "name": "clean-pc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Limpador de disco Windows via terminal",
   "type": "module",
   "bin": {
@@ -11,11 +11,9 @@
     "build:sea-bundle": "tsup --config tsup.sea.config.ts",
     "build:sea": "powershell -ExecutionPolicy Bypass -File build-sea.ps1",
     "typecheck": "tsc --noEmit",
-
     "scan": "tsx src/cli/index.ts scan --targets userTemp,windowsTemp,recycleBin,npm,logs",
     "dry": "tsx src/cli/index.ts clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs",
     "clean": "tsx src/cli/index.ts clean --targets userTemp,windowsTemp,recycleBin,npm,logs",
-
     "dev:scan": "tsx src/cli/index.ts scan",
     "dev:clean": "tsx src/cli/index.ts clean",
     "dev:dry": "tsx src/cli/index.ts clean --dry-run"
