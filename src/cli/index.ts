@@ -340,6 +340,12 @@ function parsearTargets(raw: string | undefined): string[] {
   return keys;
 }
 
+function isPromptInterrupt(err: unknown): boolean {
+  return err instanceof Error &&
+    err.name === 'ExitPromptError' &&
+    err.message.includes('SIGINT');
+}
+
 // ─── CLI ──────────────────────────────────────────────────────────────────────
 
 const program = new Command();
@@ -373,4 +379,12 @@ program
     await fluxoLimpeza(targetKeys, opts.dryRun, minAgeHours);
   });
 
-program.parse(process.argv);
+program.parseAsync(process.argv).catch((err: unknown) => {
+  if (isPromptInterrupt(err)) {
+    console.log('');
+    console.log(chalk.dim('OperaÃ§Ã£o cancelada.'));
+    process.exit(130);
+  }
+
+  throw err;
+});
