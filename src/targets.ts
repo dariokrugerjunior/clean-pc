@@ -98,27 +98,16 @@ async function resolveNpmCacheDir(): Promise<string> {
   return _npmCacheDir;
 }
 
-// ─── Logs ────────────────────────────────────────────────────────────────────
-
-const LOG_PATTERNS = ['**/*.log', '**/*.tmp', '**/*.dmp'];
-
-function getLogDirs(): string[] {
-  const local = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local');
-  return [
-    join(local, 'Logs'),
-    join(local, 'Microsoft', 'Windows', 'WER'),
-    'C:\\Windows\\Logs',
-    'C:\\ProgramData\\Microsoft\\Windows\\WER',
-  ];
-}
+// ─── Multi-directory scan helpers ─────────────────────────────────────────────
 
 function toGlobPath(p: string): string {
   return normalize(p).replace(/\\/g, '/');
 }
 
 /** Scan a single directory with specific glob patterns and age filtering. */
-async function scanLogDir(
+async function scanDirWithPatterns(
   baseDir: string,
+  patterns: string[],
   cutoff: Date,
 ): Promise<{ files: ScannedFile[]; accessError?: string }> {
   try {
@@ -130,11 +119,11 @@ async function scanLogDir(
   }
 
   const globBase = toGlobPath(baseDir);
-  const patterns = LOG_PATTERNS.map(p => `${globBase}/${p}`);
+  const globPatterns = patterns.map(p => `${globBase}/${p}`);
 
   let paths: string[];
   try {
-    paths = await fg(patterns, {
+    paths = await fg(globPatterns, {
       onlyFiles: true,
       dot: true,
       followSymbolicLinks: false,
@@ -165,6 +154,127 @@ async function scanLogDir(
   );
 
   return { files: settled.filter((f): f is ScannedFile => f !== null) };
+}
+
+/** Stat a single specific file (not a glob). Returns null if inaccessible or a symlink. */
+async function statSingleFile(filePath: string, cutoff: Date): Promise<ScannedFile | null> {
+  try {
+    const stat = await fs.lstat(filePath);
+    if (stat.isSymbolicLink() || !stat.isFile()) return null;
+    return {
+      path: normalize(filePath),
+      sizeBytes: stat.size,
+      modifiedAt: stat.mtime,
+      tooRecent: stat.mtime > cutoff,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Generic multi-location scan: many directories + optional specific files. */
+async function scanMultiLocation(
+  targetKey: string,
+  label: string,
+  riskLevel: 'safe' | 'moderate' | 'aggressive',
+  dirs: string[],
+  patterns: string[],
+  singleFiles: string[],
+  minAgeHours: number,
+): Promise<ScanResult> {
+  const start = performance.now();
+  const cutoff = new Date(Date.now() - minAgeHours * 60 * 60 * 1000);
+
+  const allFiles: ScannedFile[] = [];
+  const errors: string[] = [];
+
+  const dirResults = await Promise.all(dirs.map(dir => scanDirWithPatterns(dir, patterns, cutoff)));
+  for (let i = 0; i < dirResults.length; i++) {
+    const { files, accessError } = dirResults[i]!;
+    allFiles.push(...files);
+    if (accessError && accessError !== 'not found') {
+      errors.push(`${dirs[i]}: ${accessError}`);
+    }
+  }
+
+  for (const filePath of singleFiles) {
+    const f = await statSingleFile(filePath, cutoff);
+    if (f) allFiles.push(f);
+  }
+
+  const totalBytes = allFiles.reduce((a, f) => a + f.sizeBytes, 0);
+  const eligible = allFiles.filter(f => !f.tooRecent);
+
+  return {
+    targetKey,
+    label,
+    riskLevel,
+    isExternal: false,
+    files: allFiles,
+    totalBytes,
+    fileCount: allFiles.length,
+    eligibleBytes: eligible.reduce((a, f) => a + f.sizeBytes, 0),
+    eligibleCount: eligible.length,
+    skippedRecentCount: allFiles.length - eligible.length,
+    durationMs: Math.round(performance.now() - start),
+    error: errors.length > 0 ? errors.join(' | ') : undefined,
+  };
+}
+
+// ─── Logs ────────────────────────────────────────────────────────────────────
+
+const LOG_PATTERNS = ['**/*.log', '**/*.tmp', '**/*.dmp'];
+
+function getLogDirs(): string[] {
+  const local = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local');
+  return [
+    join(local, 'Logs'),
+    join(local, 'Microsoft', 'Windows', 'WER'),
+    'C:\\Windows\\Logs',
+    'C:\\ProgramData\\Microsoft\\Windows\\WER',
+  ];
+}
+
+// ─── Crash Dumps ─────────────────────────────────────────────────────────────
+
+const CRASH_DUMP_PATTERNS = ['**/*.dmp', '**/*.mdmp', '**/*.hdmp'];
+
+function getCrashDumpDirs(): string[] {
+  const local = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local');
+  return [
+    join(local, 'CrashDumps'),
+    'C:\\Windows\\Minidump',
+    'C:\\Windows\\LiveKernelReports',
+  ];
+}
+
+// Kernel dumps that live at a fixed path (not inside a directory we globbed).
+const CRASH_DUMP_SINGLE_FILES = ['C:\\Windows\\memory.dmp'];
+
+// ─── Shader Cache ────────────────────────────────────────────────────────────
+
+// Shader cache dirs are single-purpose — everything inside is a regenerable blob.
+// Vendors use inconsistent naming (.dxcache, .parc, extensionless), so match all files.
+const SHADER_CACHE_PATTERNS = ['**/*'];
+
+function getShaderCacheDirs(): string[] {
+  const local = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local');
+  return [
+    join(local, 'D3DSCache'),          // DirectX built-in
+    join(local, 'NVIDIA', 'DXCache'),  // NVIDIA DirectX
+    join(local, 'NVIDIA', 'GLCache'),  // NVIDIA OpenGL
+    join(local, 'AMD', 'DxCache'),     // AMD/Radeon DirectX
+  ];
+}
+
+// ─── Thumbnail Cache ─────────────────────────────────────────────────────────
+
+// Files live directly in Explorer/ — no ** prefix so we don't touch nested state.
+const THUMBNAIL_CACHE_PATTERNS = ['thumbcache_*.db', 'iconcache_*.db'];
+
+function getThumbnailCacheDirs(): string[] {
+  const local = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local');
+  return [join(local, 'Microsoft', 'Windows', 'Explorer')];
 }
 
 // ─── Target registry ─────────────────────────────────────────────────────────
@@ -303,44 +413,110 @@ export const ALL_TARGETS: Record<string, TargetDef> = {
     riskLevel: 'moderate',
 
     async scanFn(minAgeHours: number): Promise<ScanResult> {
-      const start = performance.now();
-      const cutoff = new Date(Date.now() - minAgeHours * 60 * 60 * 1000);
-      const dirs = getLogDirs();
-
-      const allFiles: ScannedFile[] = [];
-      const dirErrors: string[] = [];
-
-      // Scan directories concurrently — each is independent.
-      const results = await Promise.all(dirs.map(dir => scanLogDir(dir, cutoff)));
-      for (let i = 0; i < results.length; i++) {
-        const { files, accessError } = results[i]!;
-        allFiles.push(...files);
-        if (accessError && accessError !== 'not found') {
-          dirErrors.push(`${dirs[i]}: ${accessError}`);
-        }
-      }
-
-      const totalBytes = allFiles.reduce((a, f) => a + f.sizeBytes, 0);
-      const eligible = allFiles.filter(f => !f.tooRecent);
-
-      return {
-        targetKey: 'logs',
-        label: 'Log Files',
-        riskLevel: 'moderate',
-        isExternal: false,
-        files: allFiles,
-        totalBytes,
-        fileCount: allFiles.length,
-        eligibleBytes: eligible.reduce((a, f) => a + f.sizeBytes, 0),
-        eligibleCount: eligible.length,
-        skippedRecentCount: allFiles.length - eligible.length,
-        durationMs: Math.round(performance.now() - start),
-        error: dirErrors.length > 0 ? dirErrors.join(' | ') : undefined,
-      };
+      return scanMultiLocation('logs', 'Log Files', 'moderate', getLogDirs(), LOG_PATTERNS, [], minAgeHours);
     },
 
     async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
       return deleteFiles('logs', scanResult, getLogDirs(), dryRun, performance.now());
+    },
+  },
+
+  // Windows Update download cache. `SoftwareDistribution\Download` is the
+  // documented safe target — parent `SoftwareDistribution` also contains
+  // runtime state (DataStore) that must not be touched. Files locked by
+  // the wuauserv service fail gracefully in safeRemove; run as admin (and
+  // ideally stop wuauserv first) to reclaim the last few GBs.
+  windowsUpdate: {
+    key: 'windowsUpdate',
+    label: 'Windows Update Cache',
+    resolvePath: () => 'C:\\Windows\\SoftwareDistribution\\Download',
+    riskLevel: 'moderate',
+  },
+
+  // Crash / minidump files across per-user, kernel-minidump and full-kernel-dump paths.
+  // Deleting a .dmp only removes post-mortem debugging data; nothing at runtime depends on it.
+  crashDumps: {
+    key: 'crashDumps',
+    label: 'Crash Dumps',
+    resolvePath: () => '', // multi-location target
+    riskLevel: 'safe',
+
+    async scanFn(minAgeHours: number): Promise<ScanResult> {
+      return scanMultiLocation(
+        'crashDumps',
+        'Crash Dumps',
+        'safe',
+        getCrashDumpDirs(),
+        CRASH_DUMP_PATTERNS,
+        CRASH_DUMP_SINGLE_FILES,
+        minAgeHours,
+      );
+    },
+
+    async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
+      // Each single-file path acts as its own allowed base (deleteFiles uses startsWith).
+      const bases = [...getCrashDumpDirs(), ...CRASH_DUMP_SINGLE_FILES];
+      return deleteFiles('crashDumps', scanResult, bases, dryRun, performance.now());
+    },
+  },
+
+  // Windows Update peer-to-peer download cache. Same parent as `windowsUpdate`,
+  // but a distinct subdirectory — reclaiming it does not affect update history.
+  deliveryOptimization: {
+    key: 'deliveryOptimization',
+    label: 'Delivery Optimization',
+    resolvePath: () => 'C:\\Windows\\SoftwareDistribution\\DeliveryOptimization',
+    riskLevel: 'moderate',
+  },
+
+  // GPU shader binary caches — DirectX (built-in) + NVIDIA + AMD. Shaders are
+  // recompiled on demand the next time a game/app runs; only stalls the *first*
+  // frames after cleanup.
+  shaderCache: {
+    key: 'shaderCache',
+    label: 'GPU Shader Cache',
+    resolvePath: () => '', // multi-location target
+    riskLevel: 'safe',
+
+    async scanFn(minAgeHours: number): Promise<ScanResult> {
+      return scanMultiLocation(
+        'shaderCache',
+        'GPU Shader Cache',
+        'safe',
+        getShaderCacheDirs(),
+        SHADER_CACHE_PATTERNS,
+        [],
+        minAgeHours,
+      );
+    },
+
+    async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
+      return deleteFiles('shaderCache', scanResult, getShaderCacheDirs(), dryRun, performance.now());
+    },
+  },
+
+  // Explorer thumbnail + icon caches. Regenerate transparently on the next
+  // folder view. Files can be locked while Explorer is running.
+  thumbnailCache: {
+    key: 'thumbnailCache',
+    label: 'Thumbnail Cache',
+    resolvePath: () => '', // pattern-scoped inside a well-known dir
+    riskLevel: 'safe',
+
+    async scanFn(minAgeHours: number): Promise<ScanResult> {
+      return scanMultiLocation(
+        'thumbnailCache',
+        'Thumbnail Cache',
+        'safe',
+        getThumbnailCacheDirs(),
+        THUMBNAIL_CACHE_PATTERNS,
+        [],
+        minAgeHours,
+      );
+    },
+
+    async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
+      return deleteFiles('thumbnailCache', scanResult, getThumbnailCacheDirs(), dryRun, performance.now());
     },
   },
 };

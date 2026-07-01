@@ -11,7 +11,18 @@ import { DEFAULT_TARGET_KEYS, ALL_TARGETS } from '../targets.js';
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const DIVISOR = '─'.repeat(60);
-const TODOS_TARGETS = ['userTemp', 'windowsTemp', 'recycleBin', 'npm', 'logs'];
+const TODOS_TARGETS = [
+  'userTemp',
+  'windowsTemp',
+  'recycleBin',
+  'npm',
+  'logs',
+  'windowsUpdate',
+  'crashDumps',
+  'deliveryOptimization',
+  'shaderCache',
+  'thumbnailCache',
+];
 
 // ─── Formatação ───────────────────────────────────────────────────────────────
 
@@ -306,6 +317,26 @@ const MENU_CHOICES = [
     name: 'Limpar logs',
     value: 'clean-logs',
   },
+  {
+    name: 'Limpar cache do Windows Update',
+    value: 'clean-windowsUpdate',
+  },
+  {
+    name: 'Limpar dumps de memória (crash dumps)',
+    value: 'clean-crashDumps',
+  },
+  {
+    name: 'Limpar cache do Delivery Optimization',
+    value: 'clean-deliveryOptimization',
+  },
+  {
+    name: 'Limpar cache de shaders da GPU',
+    value: 'clean-shaderCache',
+  },
+  {
+    name: 'Limpar cache de miniaturas (thumbnails)',
+    value: 'clean-thumbnailCache',
+  },
   new Separator(MENU_SEPARATOR.repeat(2)),
   {
     name: 'Limpeza segura completa',
@@ -339,7 +370,7 @@ async function modoInterativo(showBanner = true): Promise<void> {
     const opcao = await select<OpcaoMenu>({
       message: 'O que deseja fazer?',
       choices: MENU_CHOICES as any,
-      pageSize: 11,
+      pageSize: 17,
     });
 
     console.log('');
@@ -367,6 +398,26 @@ async function modoInterativo(showBanner = true): Promise<void> {
 
       case 'clean-logs':
         await fluxoLimpeza(['logs'], false);
+        break;
+
+      case 'clean-windowsUpdate':
+        await fluxoLimpeza(['windowsUpdate'], false);
+        break;
+
+      case 'clean-crashDumps':
+        await fluxoLimpeza(['crashDumps'], false);
+        break;
+
+      case 'clean-deliveryOptimization':
+        await fluxoLimpeza(['deliveryOptimization'], false);
+        break;
+
+      case 'clean-shaderCache':
+        await fluxoLimpeza(['shaderCache'], false);
+        break;
+
+      case 'clean-thumbnailCache':
+        await fluxoLimpeza(['thumbnailCache'], false);
         break;
 
       case 'clean-all':

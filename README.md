@@ -94,6 +94,11 @@ Opcoes disponiveis:
 - Esvaziar lixeira
 - Limpar cache do npm
 - Limpar logs
+- Limpar cache do Windows Update
+- Limpar dumps de memoria (crash dumps)
+- Limpar cache do Delivery Optimization
+- Limpar cache de shaders da GPU
+- Limpar cache de miniaturas (thumbnails)
 - Limpeza segura completa
 - Sair
 
@@ -107,7 +112,7 @@ clean-pc --no-banner
 
 ```powershell
 # analisar todos os targets
-clean-pc scan --targets userTemp,windowsTemp,recycleBin,npm,logs
+clean-pc scan --targets userTemp,windowsTemp,recycleBin,npm,logs,windowsUpdate,crashDumps,deliveryOptimization,shaderCache,thumbnailCache
 
 # simulacao, sem deletar nada
 clean-pc clean --dry-run
@@ -127,6 +132,11 @@ clean-pc clean --targets userTemp,npm
 | `recycleBin` | Lixeira do Windows | Seguro |
 | `npm` | Cache do npm | Moderado |
 | `logs` | Logs do sistema e WER | Moderado |
+| `windowsUpdate` | `C:\Windows\SoftwareDistribution\Download` | Moderado |
+| `crashDumps` | `%LOCALAPPDATA%\CrashDumps`, `C:\Windows\Minidump`, `C:\Windows\LiveKernelReports`, `C:\Windows\memory.dmp` | Seguro |
+| `deliveryOptimization` | `C:\Windows\SoftwareDistribution\DeliveryOptimization` | Moderado |
+| `shaderCache` | `%LOCALAPPDATA%\D3DSCache`, `NVIDIA\DXCache`, `NVIDIA\GLCache`, `AMD\DxCache` | Seguro |
+| `thumbnailCache` | `%LOCALAPPDATA%\Microsoft\Windows\Explorer\thumbcache_*.db`, `iconcache_*.db` | Seguro |
 
 ---
 
@@ -146,8 +156,12 @@ Exemplos:
 clean-pc scan --targets userTemp --min-age-hours 0
 
 # limpeza completa em modo simulacao
-clean-pc clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs
+clean-pc clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs,windowsUpdate,crashDumps,deliveryOptimization,shaderCache,thumbnailCache
 ```
+
+> `windowsUpdate`, `deliveryOptimization` e `crashDumps` (especialmente `C:\Windows\Minidump` e `memory.dmp`) exigem terminal como Administrador para liberar arquivos protegidos. Sem privilegios, os arquivos que puderem ser lidos ainda serao limpos e os demais aparecem em "Falhas".
+>
+> `thumbnailCache` pode falhar se o Explorer estiver com os `thumbcache_*.db` bloqueados. Feche janelas do Explorer ou aceite as falhas — os arquivos sao regerados automaticamente.
 
 ---
 
