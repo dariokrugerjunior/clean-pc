@@ -1,6 +1,6 @@
 {
   "name": "clean-pc",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "description": "Limpador de disco Windows via terminal",
   "type": "module",
   "bin": {
