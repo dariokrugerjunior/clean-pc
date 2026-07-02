@@ -277,6 +277,34 @@ function getThumbnailCacheDirs(): string[] {
   return [join(local, 'Microsoft', 'Windows', 'Explorer')];
 }
 
+// ─── Docker helpers ──────────────────────────────────────────────────────────
+
+// Docker prints human-readable sizes like "18.81GB (64%)" / "112.8MB" / "6.266GB".
+// Returns bytes, or 0 if the value is missing / unparseable.
+function parseDockerSize(raw: string | undefined): number {
+  if (!raw) return 0;
+  const m = raw.match(/([\d.]+)\s*(B|KB|MB|GB|TB|KiB|MiB|GiB|TiB)/i);
+  if (!m) return 0;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n)) return 0;
+  const unit = m[2]!.toUpperCase();
+  const mult: Record<string, number> = {
+    B: 1,
+    KB: 1_000, MB: 1_000_000, GB: 1_000_000_000, TB: 1_000_000_000_000,
+    KIB: 1024, MIB: 1024 ** 2, GIB: 1024 ** 3, TIB: 1024 ** 4,
+  };
+  return Math.round(n * (mult[unit] ?? 0));
+}
+
+/** Distinguish "CLI missing" from "daemon offline" for clearer scan error output. */
+function classifyDockerError(err: unknown): string {
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code === 'ENOENT') return 'Docker CLI not found in PATH';
+  const msg = String((err as Error).message ?? err);
+  if (/daemon|pipe|connect/i.test(msg)) return 'Docker daemon not running';
+  return `Docker command failed: ${msg.split('\n')[0]}`;
+}
+
 // ─── Target registry ─────────────────────────────────────────────────────────
 
 export const ALL_TARGETS: Record<string, TargetDef> = {
@@ -517,6 +545,123 @@ export const ALL_TARGETS: Record<string, TargetDef> = {
 
     async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
       return deleteFiles('thumbnailCache', scanResult, getThumbnailCacheDirs(), dryRun, performance.now());
+    },
+  },
+
+  // Docker: unused images + build cache + stopped containers. Volumes are
+  // *not* touched — that's a separate call to `docker system prune --volumes`
+  // and destroys dev DB state, which merits a separate (aggressive) target.
+  // The VHDX file itself doesn't shrink until you compact it (diskpart /
+  // Optimize-VHD), which requires admin — out of scope for this target.
+  docker: {
+    key: 'docker',
+    label: 'Docker (unused)',
+    resolvePath: () => '', // external — no filesystem path
+    riskLevel: 'moderate',
+
+    async scanFn(_minAgeHours: number): Promise<ScanResult> {
+      const start = performance.now();
+      const empty = (error?: string): ScanResult => ({
+        targetKey: 'docker',
+        label: 'Docker (unused)',
+        riskLevel: 'moderate',
+        isExternal: true,
+        files: [],
+        totalBytes: 0,
+        fileCount: 0,
+        eligibleBytes: 0,
+        eligibleCount: 0,
+        skippedRecentCount: 0,
+        durationMs: Math.round(performance.now() - start),
+        error,
+      });
+
+      let stdout: string;
+      try {
+        const r = await execa('docker', ['system', 'df', '--format', 'json'], { timeout: 15_000 });
+        stdout = r.stdout;
+      } catch (err) {
+        return empty(classifyDockerError(err));
+      }
+
+      let totalBytes = 0;
+      let eligibleBytes = 0;
+      for (const line of stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean)) {
+        try {
+          const row = JSON.parse(line) as { Type?: string; Size?: string; Reclaimable?: string };
+          totalBytes += parseDockerSize(row.Size);
+          // Volumes intentionally excluded — we're not passing --volumes to prune.
+          if (row.Type && row.Type !== 'Local Volumes') {
+            eligibleBytes += parseDockerSize(row.Reclaimable);
+          }
+        } catch { /* skip malformed row */ }
+      }
+
+      return {
+        targetKey: 'docker',
+        label: 'Docker (unused)',
+        riskLevel: 'moderate',
+        isExternal: true,
+        files: [],
+        totalBytes,
+        fileCount: 0,
+        eligibleBytes,
+        eligibleCount: 0,
+        skippedRecentCount: 0,
+        durationMs: Math.round(performance.now() - start),
+      };
+    },
+
+    async cleanFn(scanResult: ScanResult, dryRun: boolean): Promise<CleanResult> {
+      const start = performance.now();
+
+      if (dryRun) {
+        return {
+          targetKey: 'docker',
+          label: scanResult.label,
+          isExternal: true,
+          deletedBytes: scanResult.eligibleBytes,
+          deletedCount: 0,
+          skippedRecentCount: 0,
+          failedFiles: [],
+          durationMs: Math.round(performance.now() - start),
+          dryRun,
+        };
+      }
+
+      let stdout: string;
+      try {
+        const r = await execa('docker', ['system', 'prune', '-a', '--force'], { timeout: 600_000 });
+        stdout = r.stdout;
+      } catch (err) {
+        return {
+          targetKey: 'docker',
+          label: scanResult.label,
+          isExternal: true,
+          deletedBytes: 0,
+          deletedCount: 0,
+          skippedRecentCount: 0,
+          failedFiles: [{ path: 'docker system prune', error: classifyDockerError(err) }],
+          durationMs: Math.round(performance.now() - start),
+          dryRun,
+        };
+      }
+
+      // "Total reclaimed space: 33.04GB" — Docker's canonical last line.
+      const m = stdout.match(/Total reclaimed space:\s*([\d.]+\s*(?:B|KB|MB|GB|TB|KiB|MiB|GiB|TiB))/i);
+      const deletedBytes = m ? parseDockerSize(m[1]) : scanResult.eligibleBytes;
+
+      return {
+        targetKey: 'docker',
+        label: scanResult.label,
+        isExternal: true,
+        deletedBytes,
+        deletedCount: 0,
+        skippedRecentCount: 0,
+        failedFiles: [],
+        durationMs: Math.round(performance.now() - start),
+        dryRun,
+      };
     },
   },
 };

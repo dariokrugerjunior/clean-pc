@@ -99,6 +99,7 @@ Opcoes disponiveis:
 - Limpar cache do Delivery Optimization
 - Limpar cache de shaders da GPU
 - Limpar cache de miniaturas (thumbnails)
+- Limpar imagens e build cache do Docker
 - Limpeza segura completa
 - Sair
 
@@ -137,6 +138,7 @@ clean-pc clean --targets userTemp,npm
 | `deliveryOptimization` | `C:\Windows\SoftwareDistribution\DeliveryOptimization` | Moderado |
 | `shaderCache` | `%LOCALAPPDATA%\D3DSCache`, `NVIDIA\DXCache`, `NVIDIA\GLCache`, `AMD\DxCache` | Seguro |
 | `thumbnailCache` | `%LOCALAPPDATA%\Microsoft\Windows\Explorer\thumbcache_*.db`, `iconcache_*.db` | Seguro |
+| `docker` | `docker system prune -a` (imagens + build cache + containers parados, **sem volumes**) | Moderado |
 
 ---
 
@@ -156,12 +158,14 @@ Exemplos:
 clean-pc scan --targets userTemp --min-age-hours 0
 
 # limpeza completa em modo simulacao
-clean-pc clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs,windowsUpdate,crashDumps,deliveryOptimization,shaderCache,thumbnailCache
+clean-pc clean --dry-run --targets userTemp,windowsTemp,recycleBin,npm,logs,windowsUpdate,crashDumps,deliveryOptimization,shaderCache,thumbnailCache,docker
 ```
 
 > `windowsUpdate`, `deliveryOptimization` e `crashDumps` (especialmente `C:\Windows\Minidump` e `memory.dmp`) exigem terminal como Administrador para liberar arquivos protegidos. Sem privilegios, os arquivos que puderem ser lidos ainda serao limpos e os demais aparecem em "Falhas".
 >
 > `thumbnailCache` pode falhar se o Explorer estiver com os `thumbcache_*.db` bloqueados. Feche janelas do Explorer ou aceite as falhas — os arquivos sao regerados automaticamente.
+>
+> `docker` chama a CLI oficial (`docker system df` no scan e `docker system prune -a` na limpeza). Se o Docker CLI nao estiver no PATH ou o daemon estiver parado, o target reporta o erro e e ignorado. Volumes nao sao tocados — o comando NAO usa `--volumes`. O arquivo VHDX em si nao encolhe automaticamente depois do prune; para recuperar o espaco em disco, rode `wsl --shutdown` + `diskpart` (`compact vdisk`) ou `Optimize-VHD` num PowerShell como Administrador.
 
 ---
 

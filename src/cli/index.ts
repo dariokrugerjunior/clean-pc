@@ -22,6 +22,7 @@ const TODOS_TARGETS = [
   'deliveryOptimization',
   'shaderCache',
   'thumbnailCache',
+  'docker',
 ];
 
 // ─── Formatação ───────────────────────────────────────────────────────────────
@@ -337,6 +338,10 @@ const MENU_CHOICES = [
     name: 'Limpar cache de miniaturas (thumbnails)',
     value: 'clean-thumbnailCache',
   },
+  {
+    name: 'Limpar imagens e build cache do Docker',
+    value: 'clean-docker',
+  },
   new Separator(MENU_SEPARATOR.repeat(2)),
   {
     name: 'Limpeza segura completa',
@@ -370,7 +375,7 @@ async function modoInterativo(showBanner = true): Promise<void> {
     const opcao = await select<OpcaoMenu>({
       message: 'O que deseja fazer?',
       choices: MENU_CHOICES as any,
-      pageSize: 17,
+      pageSize: 18,
     });
 
     console.log('');
@@ -418,6 +423,10 @@ async function modoInterativo(showBanner = true): Promise<void> {
 
       case 'clean-thumbnailCache':
         await fluxoLimpeza(['thumbnailCache'], false);
+        break;
+
+      case 'clean-docker':
+        await fluxoLimpeza(['docker'], false);
         break;
 
       case 'clean-all':
