@@ -1,5 +1,10 @@
 # clean-pc
 
+[![Release](https://github.com/dariokrugerjunior/clean-pc/actions/workflows/release.yml/badge.svg)](https://github.com/dariokrugerjunior/clean-pc/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/dariokrugerjunior/clean-pc)](https://github.com/dariokrugerjunior/clean-pc/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+
 Limpador de disco para Windows via terminal. Analisa arquivos temporarios, cache e logs, e mostra exatamente o que vai ser removido antes de apagar qualquer coisa.
 
 <br>
